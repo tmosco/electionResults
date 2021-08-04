@@ -46,8 +46,8 @@ class NamerForm(FlaskForm):
 @app.route('/index',methods=['GET', 'POST'])
 def index():
     form= NamerForm()
-    total_result=None
-    estimated_result=None
+    total_result=0
+    estimated_result=0
 
 
     if form.validate_on_submit():
