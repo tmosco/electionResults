@@ -46,11 +46,13 @@ class NamerForm(FlaskForm):
 @app.route('/index',methods=['GET', 'POST'])
 def index():
     form= NamerForm()
-    total_result=None
-    estimated_result=None
+    total_result=0
+    estimated_result=0
+    submit_form=False
 
 
     if form.validate_on_submit():
+        submit_form= True
         data=form.name.data
         lga = LGA.query.filter(LGA.lga_name == data).first()
         lga_polling_units = PollingUnit.query.filter(PollingUnit.lga_id == lga.lga_id).all()
@@ -61,13 +63,10 @@ def index():
         total_result = sum([x.party_score for x in results])
         estimated_result = AnnouncedLgaResult.query.filter(AnnouncedLgaResult.lga_name == lga.lga_id
     ).first()
-        print(type(total_result))
-        # print(total_result)
-        print(estimated_result.party_score)
-        # form.name.data = 
+    estimated_total = estimated_result.party_score
     return render_template("index.html",form=form,calculated_total=total_result,
-    # estimated_total = estimated_result.party_score,
-    # data=data
+    estimated_total = estimated_total,
+    submit_form=submit_form
     )
 
 
