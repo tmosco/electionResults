@@ -1,0 +1,32 @@
+{% extends 'base.html' %}
+
+<h1>Election Result</h1>
+
+{% block content %}
+
+	<form method="POST" action="/index">
+		{{ form.hidden_tag() }}
+
+		{{ form.name.label(class="form-label") }}
+
+		{{ form.name(class="form-control") }}
+		<br/>
+		
+		{{ form.submit(class="btn btn-secondary") }}
+
+
+	</form>
+
+	{% if calculated_total >= 0 %}
+	<div>
+		Total Sum of the polling Unit of  is {{calculated_total}}
+	</div>
+	{% else %}
+	<div>
+
+	</div>
+	{% endif %}
+	
+
+
+{% endblock %}
