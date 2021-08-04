@@ -1,18 +1,15 @@
-from flask import Flask,render_template,request
+from flask import Flask,render_template,request,url_for
 from flask_sqlalchemy import SQLAlchemy
 from flask_wtf import FlaskForm
-from wtforms import SelectField,SubmitField
+from wtforms import SelectField,SubmitField,StringField
 from wtforms.validators import DataRequired
-
 from sqlalchemy.ext.automap import automap_base
 from sqlalchemy import create_engine
 
 
 app = Flask(__name__)
-# the connection string is as a result of mysql-connector-python
 app.config[
     "SQLALCHEMY_DATABASE_URI"
-# ] = "mysql://root:@localhost/election_results"
 ] = "mysql+mysqlconnector://root:@localhost/election_results"
 app.config['SECRET_KEY'] = "my super secret key that no one is supposed to know"
 app.config['SECRET_KEY'] = 'any secret string'
@@ -26,33 +23,37 @@ Base.prepare(engine, reflect=True)
 States = Base.classes.states
 Party = Base.classes.party
 PollingUnit = Base.classes.polling_unit
-LGA = Base.classes.lga
+Lga = Base.classes.lga
 Ward = Base.classes.ward
 AnnouncedPUResult = Base.classes.announced_pu_results
 AnnouncedLgaResult = Base.classes.announced_lga_results
 
 
-# import pdb; pdb.set_trace()
 
-
-data= LGA.query.all()
-class NamerForm(FlaskForm):
+data= Lga.query.all()
+class LGA(FlaskForm):
 	name = SelectField(u"Select Local Government", choices=[x.lga_name for x in data])
 	submit = SubmitField("Submit")
 
 
+class PUnit(FlaskForm):
+	name = StringField("Enter Polling unit id", validators=[DataRequired()])
+	submit = SubmitField("Submit")
 
 
+
+@app.route('/',methods=['GET', 'POST'])
 @app.route('/index',methods=['GET', 'POST'])
 def index():
-    form= NamerForm()
+    form= LGA()
     total_result=0
-    estimated_result=0
+    submit_form=False
 
 
     if form.validate_on_submit():
+        submit_form= True
         data=form.name.data
-        lga = LGA.query.filter(LGA.lga_name == data).first()
+        lga = Lga.query.filter(Lga.lga_name == data).first()
         lga_polling_units = PollingUnit.query.filter(PollingUnit.lga_id == lga.lga_id).all()
         polling_ids = [x.uniqueid for x in lga_polling_units]
         results = AnnouncedPUResult.query.filter(
@@ -61,101 +62,50 @@ def index():
         total_result = sum([x.party_score for x in results])
         estimated_result = AnnouncedLgaResult.query.filter(AnnouncedLgaResult.lga_name == lga.lga_id
     ).first()
-        print(type(total_result))
-        # print(total_result)
-        print(estimated_result.party_score)
-        # form.name.data = 
+    # estimated_total = estimated_result.party_score
     return render_template("index.html",form=form,calculated_total=total_result,
-    # estimated_total = estimated_result.party_score,
-    # data=data
+    # estimated_total = estimated_total,
+    submit_form=submit_form
     )
 
 
-# import pdb; pdb.set_trace(),
 
 
-def poling_unit():
-    polling_units = PollingUnit.query.all()
-    columns_header=polling_units[0]
 
-    print(columns_header)
+@app.route('/party')
+def party():
+    headings=["id","partyid","partyname"]
+    party_data = Party.query.all()
+    party=[(x.id,x.partyid,x.partyid) for x in party_data]    
 
-
-@app.route('/',methods=['GET', 'POST'])
-def home():
-    lga = LGA.query.all()
-    data=""
-
-    if request.method=='POST':
-        data = request.form['comp_select']
-        return(data)
-        
+    return render_template('party.html',headings=headings,party=party)
 
 
-    return render_template('home.html',lgas=lga,data=data)
 
 
-# import pdb; pdb.set_trace()
-@app.route('/pu')
-def poling_unit():
-    polling_units = PollingUnit.query.all()
-    columns_header=polling_units.__dict__.keys()
+
+@app.route('/unit',methods=['GET', 'POST'])
+def polling_unit():
+    form = PUnit()
+    headings=[]
+    result=" "
+    data=False
     
-
     
+    if form.validate_on_submit():
+        data=form.name.data
+        polling_units = AnnouncedPUResult.query.filter(AnnouncedPUResult.polling_unit_uniqueid == data).all()
+        result = [(str(x.date_entered),x.party_abbreviation,x.party_score) for x in polling_units  ]
+        if len(result) > 0:
+            data=True
+            headings=["date","name","score"]  
+    return render_template('pollingUnit.html',headings = headings,result=result,form=form,data=data)
 
-    return render_template('pollingUnit.html',polling_units=polling_units)
-
-
-
-def send_result(lga):
-    lga_polling_units = PollingUnit.query.filter(PollingUnit.lga_id == lga.lga_id).all()
-    polling_ids = [x.uniqueid for x in lga_polling_units]
-    results = AnnouncedPUResult.query.filter(
-        AnnouncedPUResult.polling_unit_uniqueid.in_(polling_ids)
-    ).all()
-    total_result = sum([x.party_score for x in results])
-    estimated_result = AnnouncedLgaResult.query.filter(
-        AnnouncedLgaResult.lga_name == lga.lga_id
-    ).first()
-    return {
-        "lga": lga.lga_name,
-        "calculated_total": total_result,
-        "estimated_total": estimated_result.party_score,
-    }
-
-
-@app.route("/result", methods=["GET","POST"])
-def total_result():
-    lgabs = LGA.query.all()
-    data=""
-
-    if request.method=='POST':
-        data = request.form['comp_select']
-        return(data)
-        
-
-    lga = LGA.query.filter(LGA.lga_name == data).first()
-    lga_polling_units = PollingUnit.query.filter(PollingUnit.lga_id == lga.lga_id).all()
-    polling_ids = [x.uniqueid for x in lga_polling_units]
-    results = AnnouncedPUResult.query.filter(
-        AnnouncedPUResult.polling_unit_uniqueid.in_(polling_ids)
-    ).all()
-    total_result = sum([x.party_score for x in results])
-    estimated_result = AnnouncedLgaResult.query.filter(
-        AnnouncedLgaResult.lga_name == lga.lga_id
-    ).first()
-    lgas = LGA.query.all()
-    results = [send_result(x) for x in lgas]
-    return render_template("home.html",lgabs=lgabs ,lga= lga.lga_name,
-        calculated_total= total_result,
-        )
  
 
 
 
 
-# poling_unit()
 
 
 

@@ -17,9 +17,9 @@
 
 	</form>
 
-	{% if calculated_total > -1 %}
+	{% if submit_form %}
 	<div>
-		Total Sum of the polling Unit of  is {{calculated_total}}
+		Total Sum of the polling Unit {{form.data.name}} is {{calculated_total}} 
 	</div>
 	{% else %}
 	<div>
